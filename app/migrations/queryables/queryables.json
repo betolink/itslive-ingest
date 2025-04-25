@@ -1,0 +1,28 @@
+{
+    "title": "Queryables for Example STAC API",
+    "description": "Queryable names for the Example STAC API",
+    "properties": {
+        "dt_days": {
+            "type": "number",
+            "title": "Days of Separation",
+            "maximum": 180,
+            "minimum": 7,
+            "description": "Days of separation between image pairs"
+        },
+        "percent_valid_pixels": {
+            "description": "Percentage of valid glacier pixels",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+        },
+        "created": {
+            "description": "Processing date of the granule",
+            "type": "string",
+            "format": "date-time",
+            "examples": [
+                "2023-01-01T00:00:00Z"
+            ],
+            "pattern": "(\\+00:00|Z)$"
+        }
+    }
+}

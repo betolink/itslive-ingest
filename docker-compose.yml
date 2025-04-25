@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - database
+
+  database:
+    container_name: stac-db
+    image: ghcr.io/stac-utils/pgstac:v0.9.2
+    environment:
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgis
+      - PGUSER=username
+      - PGPASSWORD=password
+      - PGDATABASE=postgis
+    ports:
+      - "5432:5432"
+    command: postgres -N 500
+    volumes:
+      - ./pgstac-data:/var/lib/postgresql/data
+
+  app:
+    container_name: stac-fastapi-pgstac
+    image: ghcr.io/stac-utils/stac-fastapi-pgstac:latest
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8082
+      - RELOAD=false               # Set to false; RELOAD is only for dev
+      - ENVIRONMENT=local
+      - POSTGRES_USER=username
+      - POSTGRES_PASS=password
+      - POSTGRES_DBNAME=postgis
+      - POSTGRES_HOST_READER=database
+      - POSTGRES_HOST_WRITER=database
+      - POSTGRES_PORT=5432
+      - WEB_CONCURRENCY=10
+      - VSI_CACHE=TRUE
+      - GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=YES
+      - GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR
+      - DB_MIN_CONN_SIZE=1
+      - DB_MAX_CONN_SIZE=1
+      - USE_API_HYDRATE=${USE_API_HYDRATE:-false}
+    ports:
+      - "8082:8082"
+    depends_on:
+      - database
+    command: bash -c "./scripts/wait-for-it.sh database:5432 -- uvicorn stac_fastapi.pgstac.app:app --host 0.0.0.0 --port 8082"
+
+  # ingest-service:
+  #   build: ./app/
+  #   ports:
+  #     - "8000:8000"
+  #   tmpfs:
+  #     - /tmp/shared:rw,size=2048576000  # 2GB in bytes
+  #   volumes:
+  #     - ./state:/state
+  #     - ./app:/app
+  #   environment:
+  #     - DATABASE_URL=postgresql://username:password@database:5432/postgis
+  #     - INGEST_WORKERS=8
+  #     - STATE_FILE=/state/ingest_status.csv
+  #     - TMP_DIR=/tmp/shared
+  #     - MAX_CONCURRENT_FILES=2
+  #     - MAX_FILE_SIZE_MB=1500
+  #     - DEFAULT_YEAR=
+  #   depends_on:
+  #     - database
