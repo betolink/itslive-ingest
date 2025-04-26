@@ -33,6 +33,7 @@ MANIFEST
 *.spec
 
 app/state/
+pgstac-data/
 
 # Installer logs
 pip-log.txt
