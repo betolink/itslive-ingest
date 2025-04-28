@@ -112,7 +112,7 @@ async def load_collections():
             file_path = os.path.join(collections_dir, filename)
 
             proc = await asyncio.create_subprocess_exec(
-                "pypgstac",
+                "conda", "run", "-n", "itslive-ingest", "pypgstac",
                 "load",
                 "collections",
                 file_path,
@@ -142,7 +142,7 @@ async def load_queryables(index_fields: list):
             file_path = os.path.join(queryables_dir, filename)
 
             proc = await asyncio.create_subprocess_exec(
-                "pypgstac",
+                "conda", "run", "-n", "itslive-ingest", "pypgstac",
                 "load_queryables",
                 file_path,
                 f"--dsn={DATABASE_URL}",
@@ -446,10 +446,7 @@ async def process_file(job_id: str, bucket: str, key: str, index: int, total: in
                         "size_mb": round(size_mb, 2),
                         "etag": etag,
                         "completed_at": datetime.now().isoformat(),
-                        "ingest_time": datetime.now()
-                        - datetime.fromisoformat(
-                            data["details"][s3_path]["started_at"]
-                        ),
+                        "ingest_time": round((datetime.now() - datetime.fromisoformat(data["details"][s3_path]["started_at"])).total_seconds() / 60)
                     },
                 },
             },
