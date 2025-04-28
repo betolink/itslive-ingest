@@ -18,7 +18,7 @@ import logging
 
 from fastapi.logger import logger as fastapi_logger
 
-from tasks import process_files, initialize_database_task, dummy_task
+from tasks import process_files, initialize_database_task, dummy_task, check_database_connection
 from tracker import active_processes, job_tracker as tracker
 
 # Setup logging
@@ -141,6 +141,10 @@ async def health_check():
     logger.info("🚀 Application is healthy!")
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
+@app.get("/database")
+async def database_test():
+    check = await run_in_threadpool(check_database_connection)
+    return {"status": check, "timestamp": datetime.now().isoformat()}
 
 @app.post("/ingest", dependencies=[Depends(verify_token)])
 async def create_ingest_job(
