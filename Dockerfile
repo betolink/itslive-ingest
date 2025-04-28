@@ -5,13 +5,15 @@ FROM condaforge/miniforge3
 WORKDIR /app
 
 # Copy environment.yml first to leverage Docker layer caching
-COPY environment.yml .
+COPY conda-linux-64.lock .
 
 # Create the conda environment
-RUN conda env create -f environment.yml
+RUN conda create --name itslive-ingest --file conda-linux-64.lock && \
+    conda clean --all --yes && \
+    rm -rf /opt/conda/pkgs
 
 # Activate conda environment in all subsequent RUN, CMD, ENTRYPOINT commands
-SHELL ["conda", "run", "-n", "itslive-ingest", "/bin/bash", "-c"]
+# SHELL ["conda", "run", "-n", "itslive-ingest", "/bin/bash", "-c"]
 
 # Copy rest of the app
 COPY ./app .
