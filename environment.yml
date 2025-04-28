@@ -16,8 +16,6 @@ dependencies:
   - pyarrow
   - pystac
   - geojson
-  - pytest
-  - ruff
   - pip
   - pip:
     - pypgstac[psycopg]
