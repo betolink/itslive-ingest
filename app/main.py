@@ -16,16 +16,31 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import logging
 
+from fastapi.logger import logger as fastapi_logger
+
 from tasks import process_files, initialize_database_task, dummy_task
 from tracker import active_processes, job_tracker as tracker
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(
+#     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# )
+
 
 app = FastAPI()
+
+logger = logging.getLogger("uvicorn")
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)s [%(name)s] %(message)s')
+
+# Console Handler for stdout logging
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+fastapi_logger.handlers = logger.handlers
+fastapi_logger.setLevel(logger.level)
+
+
 
 # Authentication settings
 API_TOKEN = os.getenv("API_TOKEN", "itslive")
@@ -123,6 +138,7 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.get("/health")
 async def health_check():
+    logger.info("🚀 Application is healthy!")
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
@@ -267,5 +283,6 @@ async def cancel_job(job_id: str):
 # Run if called directly
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting ingest service app...")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

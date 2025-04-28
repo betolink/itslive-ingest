@@ -187,7 +187,7 @@ async def initialize_database_task(job_id: str, migrate: bool):
             )
 
             proc = await asyncio.create_subprocess_exec(
-                "pypgstac",
+                "conda", "run", "-n", "itslive-ingest", "pypgstac",
                 "migrate",
                 f"--dsn={DATABASE_URL}",
                 stdout=asyncio.subprocess.PIPE,
@@ -387,42 +387,41 @@ async def process_file(job_id: str, bucket: str, key: str, index: int, total: in
             )
 
         # Fetch file with optimized chunk size
-        async with PROCESS_SEM:
-            logger.info(f"Downloading {s3_path} to {tmp_path}")
-            await download_file(bucket, key, tmp_path)
+        logger.info(f"Downloading {s3_path} to {tmp_path}")
+        download_file(bucket, key, tmp_path)
 
-            count_proc = await asyncio.create_subprocess_exec(
-                "wc",
-                "-l",
-                str(tmp_path),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await count_proc.communicate()
+        count_proc = await asyncio.create_subprocess_exec(
+            "wc",
+            "-l",
+            str(tmp_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await count_proc.communicate()
 
-            if count_proc.returncode != 0:
-                raise Exception(f"Count failed: {stderr.decode().strip()}")
+        if count_proc.returncode != 0:
+            raise Exception(f"Count failed: {stderr.decode().strip()}")
 
-            try:
-                count = int(stdout.decode().strip().split()[0])
-            except (IndexError, ValueError) as e:
-                raise Exception(f"Invalid count output: {stdout.decode()}, Error: {e}")
+        try:
+            count = int(stdout.decode().strip().split()[0])
+        except (IndexError, ValueError) as e:
+            raise Exception(f"Invalid count output: {stdout.decode()}, Error: {e}")
 
-            proc = await asyncio.create_subprocess_exec(
-                "pypgstac",
-                "load",
-                "items",
-                str(tmp_path),
-                "--method=insert_ignore",
-                f"--dsn={DATABASE_URL}",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+        proc = await asyncio.create_subprocess_exec(
+            "conda", "run", "-n", "itslive-ingest", "pypgstac",
+            "load",
+            "items",
+            str(tmp_path),
+            "--method=insert_ignore",
+            f"--dsn={DATABASE_URL}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-            async with process_lock:
-                active_processes[job_id].append(proc)
+        async with process_lock:
+            active_processes[job_id].append(proc)
 
-            stdout, stderr = await proc.communicate()
+        stdout, stderr = await proc.communicate()
 
         if proc.returncode != 0:
             raise Exception(f"PGStac failed: {stderr.decode().strip()}")
@@ -510,13 +509,17 @@ async def process_file(job_id: str, bucket: str, key: str, index: int, total: in
             tmp_path.unlink()
 
 
-async def download_file(bucket, key, target_path):
+def download_file(bucket, key, target_path):
     """Optimized file download with better chunking"""
     with open(target_path, "wb") as f:
         response = s3.get_object(Bucket=bucket, Key=key)
         chunk_size = 10 * 1024 * 1024  # 10MB chunks
+        body = response["Body"]
 
-        for chunk in response["Body"].iter_chunks(chunk_size=chunk_size):
+        while True:
+            chunk = body.read(chunk_size)
+            if not chunk:
+                break
             f.write(chunk)
 
 
