@@ -94,7 +94,7 @@ def check_database_connection():
     try:
         engine = create_engine(DATABASE_URL)
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         logger.info("Database connection successful.")
         return True
     except Exception as e:

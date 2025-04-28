@@ -45,6 +45,7 @@ fastapi_logger.setLevel(logger.level)
 # Authentication settings
 API_TOKEN = os.getenv("API_TOKEN", "itslive")
 API_KEY_NAME = "X-API-Token"
+DATABASE_URL = os.getenv("DATABASE_URL")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 # Process tracking
@@ -144,7 +145,9 @@ async def health_check():
 @app.get("/database")
 async def database_test():
     check = await run_in_threadpool(check_database_connection)
-    return {"status": check, "timestamp": datetime.now().isoformat()}
+    return {"status": check,
+            "dbconn": DATABASE_URL,
+            "timestamp": datetime.now().isoformat()}
 
 @app.post("/ingest", dependencies=[Depends(verify_token)])
 async def create_ingest_job(
