@@ -20,14 +20,18 @@ jobs:
           
       - name: Install conda-lock
         run: pip install conda-lock
-        
-      - name: Generate lock file
+
+
+      - name: Generate multi-platform lock file
         run: |
-          conda-lock -k explicit --conda mamba -f environment.yml -p linux-64
-          mv conda-linux-64.lock environment-lock.yml
-          
+          conda-lock lock \
+            --platform linux-64 \
+            --platform linux-aarch64 \
+            --mamba \
+            -f environment.yml
+        
       - name: Upload lock file artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: environment-lock
           path: environment-lock.yml
@@ -42,9 +46,12 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Download lock file
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: environment-lock
+
+      - name: Show conda-lock.yml
+        run: cat conda-lock.yml
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
