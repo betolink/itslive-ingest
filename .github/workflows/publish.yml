@@ -1,46 +1,81 @@
-name: Publish Docker image
+name: Build Conda Lock and Docker Image
 
 on:
   push:
-    branches:
-      - main  # or 'master' or any branch you want
-    paths:
-      - Dockerfile
-      - environment.yml
-      - "**/*.py"
-      - .github/workflows/publish.yml
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build-and-push:
+  generate-lock:
     runs-on: ubuntu-latest
-
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install conda-lock
+        run: pip install conda-lock
+        
+      - name: Generate lock file
+        run: |
+          conda-lock -k explicit --conda mamba -f environment.yml -p linux-64
+          mv conda-linux-64.lock environment-lock.yml
+          
+      - name: Upload lock file artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: environment-lock
+          path: environment-lock.yml
+          
+  build-docker:
+    needs: generate-lock
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write  # Required to publish to GitHub Packages
-      id-token: write
-
+      packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
+      
+      - name: Download lock file
+        uses: actions/download-artifact@v3
+        with:
+          name: environment-lock
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,format=short
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (name, tag) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      
+      - name: Build and push Docker multi-arch image
+        uses: docker/build-push-action@v6.15.0
         with:
           context: .
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
 

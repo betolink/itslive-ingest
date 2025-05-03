@@ -1,21 +1,28 @@
-# Use Miniforge3 base image
-FROM condaforge/miniforge3
+# Use a minimal base image
+FROM mambaorg/micromamba:1.5.6-slim
 
-# Set working directory
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    MAMBA_ROOT_PREFIX="/opt/conda" \
+    PATH="/opt/conda/bin:$PATH"
 
-# Copy environment.yml first to leverage Docker layer caching
-COPY conda-linux-64.lock .
-
-# Create the conda environment
-RUN conda create --name itslive-ingest --file conda-linux-64.lock && \
-    conda run -n itslive-ingest pip install pypgstac[psycopg] && \
-    conda clean --all --yes && \
-    rm -rf /opt/conda/pkgs
-
-# Activate conda environment in all subsequent RUN, CMD, ENTRYPOINT commands
-SHELL ["conda", "run", "-n", "itslive-ingest", "/bin/bash", "-c"]
-
+# Work in the /app directory
 WORKDIR /app
+
+# Copy only the conda-lock file first (for better caching)
+COPY environment-lock.yml ./
+
+# Install dependencies from the lock file
+# Using micromamba's explicit environment creation for maximum reproducibility
+RUN micromamba create -y -p /opt/conda -f environment-lock.yml && \
+    micromamba clean --all --yes && \
+    find /opt/conda/ -follow -type f -name '*.a' -delete && \
+    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
+    find /opt/conda/ -name '*.pyc' -delete && \
+    find /opt/conda/ -name '__pycache__' -exec rm -rf {} + || true
+
 COPY ./app .
 
 EXPOSE 8000
