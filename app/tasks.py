@@ -112,7 +112,7 @@ async def load_collections():
             file_path = os.path.join(collections_dir, filename)
 
             proc = await asyncio.create_subprocess_exec(
-                "conda", "run", "-n", "itslive-ingest", "pypgstac",
+                "micromamba", "run", "-p", "/opt/conda", "pypgstac",
                 "load",
                 "collections",
                 file_path,
@@ -142,7 +142,7 @@ async def load_queryables(index_fields: list):
             file_path = os.path.join(queryables_dir, filename)
 
             proc = await asyncio.create_subprocess_exec(
-                "conda", "run", "-n", "itslive-ingest", "pypgstac",
+                "micromamba", "run", "-p", "/opt/conda", "pypgstac",
                 "load_queryables",
                 file_path,
                 f"--dsn={DATABASE_URL}",
@@ -187,7 +187,7 @@ async def initialize_database_task(job_id: str, migrate: bool):
             )
 
             proc = await asyncio.create_subprocess_exec(
-                "conda", "run", "-n", "itslive-ingest", "pypgstac",
+                "micromamba", "run", "-p", "/opt/conda", "pypgstac",
                 "migrate",
                 f"--dsn={DATABASE_URL}",
                 stdout=asyncio.subprocess.PIPE,
@@ -408,7 +408,7 @@ async def process_file(job_id: str, bucket: str, key: str, index: int, total: in
             raise Exception(f"Invalid count output: {stdout.decode()}, Error: {e}")
 
         proc = await asyncio.create_subprocess_exec(
-            "conda", "run", "-n", "itslive-ingest", "pypgstac",
+            "micromamba", "run", "-p", "/opt/conda", "pypgstac",
             "load",
             "items",
             str(tmp_path),

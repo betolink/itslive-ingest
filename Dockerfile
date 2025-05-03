@@ -16,7 +16,11 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER conda-lock.yml /tmp/conda-lock.yml
 # Using micromamba's explicit environment creation for maximum reproducibility
 RUN micromamba install -y -n base -f /tmp/conda-lock.yml && \
     micromamba run pip install pypgstac[psycopg] && \
-    micromamba clean --all --yes 
+    micromamba clean --all --yes && \
+    find /opt/conda/ -follow -type f -name '*.a' -delete && \
+    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
+    find /opt/conda/ -name '*.pyc' -delete && \
+    find /opt/conda/ -name '__pycache__' -exec rm -rf {} + || true
 
 COPY ./app .
 
