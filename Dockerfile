@@ -15,8 +15,7 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER conda-lock.yml /tmp/conda-lock.yml
 # Install dependencies from the lock file
 # Using micromamba's explicit environment creation for maximum reproducibility
 RUN micromamba install -y -n base -f /tmp/conda-lock.yml && \
-    micromamba install -y -n base pip && \
-    micromamba run pip install pypgstac[psycopg] uvicorn && \
+    micromamba run pip install pypgstac[psycopg] && \
     micromamba clean --all --yes 
 
 COPY ./app .

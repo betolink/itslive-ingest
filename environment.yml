@@ -19,5 +19,3 @@ dependencies:
   - pip
   - pip:
     - pypgstac[psycopg]
-platforms:
-  - linux-64
