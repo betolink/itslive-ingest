@@ -4,28 +4,24 @@ FROM mambaorg/micromamba:latest
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1 \
-    MAMBA_ROOT_PREFIX="/opt/conda" \
-    PATH="/opt/conda/bin:$PATH"
+    PYTHONFAULTHANDLER=1 
 
 # Work in the /app directory
 WORKDIR /app
 
 # Copy only the conda-lock file first (for better caching)
-COPY conda-lock.yml ./
+COPY --chown=$MAMBA_USER:$MAMBA_USER conda-lock.yaml /tmp/conda-lock.yaml
 
 # Install dependencies from the lock file
 # Using micromamba's explicit environment creation for maximum reproducibility
-RUN micromamba create -y -p /opt/conda -f conda-lock.yml && \
-    micromamba install -y -p /opt/conda pip && \
-    micromamba run -p /opt/conda pip install pypgstac[psycopg] uvicorn && \
-    micromamba clean --all --yes && \
-    find /opt/conda/ -follow -type f -name '*.a' -delete && \
-    find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
-    find /opt/conda/ -name '*.pyc' -delete && \
-    find /opt/conda/ -name '__pycache__' -exec rm -rf {} + || true
+RUN micromamba install -y -n base -f conda-lock.yml && \
+    micromamba install -y -n base pip && \
+    micromamba run pip install pypgstac[psycopg] uvicorn && \
+    micromamba clean --all --yes 
 
 COPY ./app .
+
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 EXPOSE 8000
 
