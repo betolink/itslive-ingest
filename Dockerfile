@@ -1,5 +1,5 @@
 # Use a minimal base image
-FROM mambaorg/micromamba:1.5.6-slim
+FROM mambaorg/micromamba:latest
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
