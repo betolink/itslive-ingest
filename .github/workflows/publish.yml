@@ -33,8 +33,10 @@ jobs:
       - name: Upload lock file artifact
         uses: actions/upload-artifact@v4
         with:
-          name: environment-lock
+          name: conda-lock
           path: conda-lock.yml
+          retention-days: 7
+          compression-level: 9
           
   build-docker:
     needs: generate-lock
@@ -49,6 +51,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: conda-lock
+          path: .
 
       - name: Show conda-lock.yml
         run: cat conda-lock.yml
