@@ -34,7 +34,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: environment-lock
-          path: environment-lock.yml
+          path: conda-lock.yml
           
   build-docker:
     needs: generate-lock
@@ -48,7 +48,7 @@ jobs:
       - name: Download lock file
         uses: actions/download-artifact@v4
         with:
-          name: environment-lock
+          name: conda-lock
 
       - name: Show conda-lock.yml
         run: cat conda-lock.yml
