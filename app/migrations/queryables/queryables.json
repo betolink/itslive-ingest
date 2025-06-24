@@ -2,10 +2,10 @@
     "title": "Queryables for Example STAC API",
     "description": "Queryable names for the Example STAC API",
     "properties": {
-        "dt_days": {
+        "date_dt": {
             "type": "number",
             "title": "Days of Separation",
-            "maximum": 180,
+            "maximum": 365,
             "minimum": 7,
             "description": "Days of separation between image pairs"
         },

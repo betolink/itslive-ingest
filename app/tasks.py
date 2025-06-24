@@ -29,8 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 process_lock = asyncio.Lock()
-CACHE_TTL = 3600  # 1 hour
-# S3 Client with connection pooling
+CACHE_TTL = 3600  
 s3 = boto3.client(
     "s3",
     config=Config(
@@ -43,7 +42,6 @@ s3 = boto3.client(
 def run_migrations(engine):
     migration_dir = "migrations"
 
-    # Ensure the directory exists
     if not os.path.isdir(migration_dir):
         logger.info(f"Migration directory '{migration_dir}' not found.")
         return
