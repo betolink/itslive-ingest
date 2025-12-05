@@ -1,2 +1,2 @@
-UPDATE collections set partition_trunc='year' where id='itslive-granules';
+UPDATE collections set partition_trunc='year' where id='velocity-granules';
 

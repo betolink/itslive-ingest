@@ -103,7 +103,17 @@ def check_database_connection():
 async def load_collections():
     collections_dir = "migrations/collections"
     try:
+        if not os.path.isdir(collections_dir):
+            logger.error(f"Collections directory '{collections_dir}' not found.")
+            return False
+            
         files = sorted(f for f in os.listdir(collections_dir) if f.endswith(".json"))
+        if not files:
+            logger.warning("No collection files found.")
+            return True
+            
+        logger.info(f"Loading {len(files)} collections: {files}")
+        
         for filename in files:
             logger.info(f"🔁 Inserting collection: {filename}...")
 
@@ -128,12 +138,24 @@ async def load_collections():
     except Exception as e:
         logger.error(f"Failed to load collections: {str(e)}")
         return False
+    
+    return True
 
 
 async def load_queryables(index_fields: list):
     queryables_dir = "migrations/queryables"
     try:
+        if not os.path.isdir(queryables_dir):
+            logger.error(f"Queryables directory '{queryables_dir}' not found.")
+            return False
+            
         files = sorted(f for f in os.listdir(queryables_dir) if f.endswith(".json"))
+        if not files:
+            logger.warning("No queryable files found.")
+            return True
+            
+        logger.info(f"Loading {len(files)} queryable files: {files}")
+        
         for filename in files:
             logger.info(f"🔁 Inserting queryables: {filename}...")
 
@@ -159,6 +181,68 @@ async def load_queryables(index_fields: list):
     except Exception as e:
         logger.error(f"Failed to load queryables: {str(e)}")
         return False
+    
+    return True
+
+
+async def load_items_from_files():
+    """Load items from local JSON files for cubes and mosaics collections"""
+    items_dir = "migrations/collections/items"
+    
+    if not os.path.isdir(items_dir):
+        logger.warning(f"Items directory '{items_dir}' not found. Skipping item loading.")
+        return True
+        
+    try:
+        files = sorted(f for f in os.listdir(items_dir) if f.endswith(".json"))
+        if not files:
+            logger.info("No item files found to load.")
+            return True
+            
+        logger.info(f"Found {len(files)} item files to process: {files}")
+        
+        for filename in files:
+            logger.info(f"🔁 Loading items from {filename}...")
+            
+            file_path = os.path.join(items_dir, filename)
+            
+            # Extract collection name from filename
+            if filename == "cube-items.json":
+                collection_name = "itslive-cubes"
+            elif filename == "velocity-mosaics-items.json":
+                collection_name = "velocity-mosaics"
+            else:
+                # Fallback: remove -items.json suffix
+                collection_name = filename.replace("-items.json", "")
+            
+            logger.info(f"Loading items for collection: {collection_name}")
+
+            proc = await asyncio.create_subprocess_exec(
+                "micromamba", "run", "-p", "/opt/conda", "pypgstac",
+                "load",
+                "items",
+                file_path,
+                "--method=insert_ignore",
+                f"--dsn={DATABASE_URL}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise Exception(f"Failed to load items from {filename}: {stderr.decode().strip()}")
+
+            # Log success with item count if available
+            stdout_str = stdout.decode().strip()
+            if stdout_str:
+                logger.info(f"pypgstac output: {stdout_str}")
+            logger.info(f"Items from {filename} loaded successfully 🎉")
+            
+    except Exception as e:
+        logger.error(f"Failed to load items: {str(e)}")
+        return False
+    
+    return True
 
 
 async def initialize_database_task(job_id: str, migrate: bool):
@@ -205,8 +289,19 @@ async def initialize_database_task(job_id: str, migrate: bool):
                 ),
             )
 
-        await load_collections()
-        await load_queryables(["dt_days", "created"])
+        # Load collections
+        if not await load_collections():
+            raise Exception("Failed to load collections")
+            
+        # Load items from local files
+        if not await load_items_from_files():
+            raise Exception("Failed to load items")
+            
+        # Load queryables
+        if not await load_queryables(["dt_days", "created"]):
+            raise Exception("Failed to load queryables")
+            
+        # Run custom migrations
         run_migrations(engine)
 
         tracker.update_job(
