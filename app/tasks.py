@@ -187,7 +187,7 @@ async def load_queryables(index_fields: list):
 
 async def load_items_from_files():
     """Load items from local JSON files using collection configuration"""
-    from app.collection_config import get_collection_name_from_filename
+    from collection_config import get_collection_name_from_filename
     
     items_dir = "migrations/collections/items"
     
@@ -745,7 +745,7 @@ async def dummy_task(job_id: str, name: str, tasks_to_run: int, concurrent_tasks
 
 def discover_files(bucket: str, path: str, recursive: bool, year: int = None, collection_id: str = None) -> list:
     """Discover STAC files with configurable patterns per collection"""
-    from app.collection_config import get_filename_regex_for_collection, get_file_pattern_for_collection
+    from collection_config import get_filename_regex_for_collection, get_file_pattern_for_collection
     
     prefix = path.rstrip("/") + "/"
     files = []
