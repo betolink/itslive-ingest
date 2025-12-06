@@ -154,6 +154,7 @@ async def create_ingest_job(
     path: str = Query(..., description="S3 path prefix"),
     recursive: bool = Query(False),
     year: int = Query(None),
+    collection_id: str = Query(None, description="Collection ID for configuration-based ingestion"),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     current_job = await run_in_threadpool(tracker.has_active_jobs)
@@ -168,8 +169,39 @@ async def create_ingest_job(
             },
         )
 
-    job_id = await run_in_threadpool(tracker.create_job, bucket, path, recursive, year)
+    job_id = await run_in_threadpool(tracker.create_job, bucket, path, recursive, year, collection_id)
     background_tasks.add_task(process_files, job_id)
+
+    return {
+        "job_id": job_id,
+        "status": "pending",
+        "links": {
+            "status": f"/jobs/{job_id}",
+            "details": f"/jobs/{job_id}?details=true",
+        },
+    }
+
+
+@app.post("/ingest/granules", dependencies=[Depends(verify_token)])
+async def create_granule_ingest_job(
+    url: str = Query(..., description="Granule URL/endpoint"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """Create granule ingestion job from URL/endpoint"""
+    current_job = await run_in_threadpool(tracker.has_active_jobs)
+    if current_job:
+        job_id = current_job["job_id"]
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={
+                "detail": f"Ingest job {job_id} is already in progress. Only one concurrent ingest is allowed.",
+                "status_code": 429,
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+
+    job_id = await run_in_threadpool(tracker.create_job, "granules", url, False, None, "velocity-granules")
+    background_tasks.add_task(process_granules_from_url, job_id, url)
 
     return {
         "job_id": job_id,

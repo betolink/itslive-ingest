@@ -45,7 +45,7 @@ class JobTracker:
                 self.job_locks[job_id] = threading.RLock()
             return self.job_locks[job_id]
 
-    def create_job(self, bucket, path, recursive, year=None):
+    def create_job(self, bucket, path, recursive, year=None, collection_id=None):
         """Create a new job with thread safety"""
         job_id = str(uuid.uuid4())
         job_file = self.jobs_dir / f"{job_id}.json"
@@ -57,6 +57,7 @@ class JobTracker:
                 "path": path,
                 "recursive": recursive,
                 "year": year,
+                "collection_id": collection_id,
             },
             "status": "pending",
             "created_at": datetime.now().isoformat(),

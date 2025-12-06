@@ -186,7 +186,9 @@ async def load_queryables(index_fields: list):
 
 
 async def load_items_from_files():
-    """Load items from local JSON files for cubes and mosaics collections"""
+    """Load items from local JSON files using collection configuration"""
+    from .collection_config import get_collection_name_from_filename
+    
     items_dir = "migrations/collections/items"
     
     if not os.path.isdir(items_dir):
@@ -206,14 +208,12 @@ async def load_items_from_files():
             
             file_path = os.path.join(items_dir, filename)
             
-            # Extract collection name from filename
-            if filename == "cube-items.json":
-                collection_name = "itslive-cubes"
-            elif filename == "velocity-mosaics-items.json":
-                collection_name = "velocity-mosaics"
-            else:
+            # Extract collection name from filename using configuration
+            collection_name = get_collection_name_from_filename(filename)
+            if not collection_name:
                 # Fallback: remove -items.json suffix
                 collection_name = filename.replace("-items.json", "")
+                logger.warning(f"No configuration found for {filename}, using fallback collection name: {collection_name}")
             
             logger.info(f"Loading items for collection: {collection_name}")
 
@@ -339,7 +339,7 @@ async def process_files(job_id: str):
 
         params = job_data["parameters"]
         files = discover_files(
-            params["bucket"], params["path"], params["recursive"], params["year"]
+            params["bucket"], params["path"], params["recursive"], params["year"], params.get("collection_id")
         )
 
         tracker.update_job(
@@ -743,11 +743,21 @@ async def dummy_task(job_id: str, name: str, tasks_to_run: int, concurrent_tasks
         tracker.update_job(job_id, {"status": "failed", "error": str(e)})
 
 
-def discover_files(bucket: str, path: str, recursive: bool, year: int = None) -> list:
-    """Discover STAC files with more efficient pagination"""
+def discover_files(bucket: str, path: str, recursive: bool, year: int = None, collection_id: str = None) -> list:
+    """Discover STAC files with configurable patterns per collection"""
+    from .collection_config import get_filename_regex_for_collection, get_file_pattern_for_collection
+    
     prefix = path.rstrip("/") + "/"
     files = []
 
+    # Default to .ndjson files if no collection specified
+    file_pattern = "*.ndjson"
+    filename_regex = None
+    
+    if collection_id:
+        file_pattern = get_file_pattern_for_collection(collection_id) or file_pattern
+        filename_regex = get_filename_regex_for_collection(collection_id)
+    
     paginator = s3.get_paginator("list_objects_v2")
     operation_params = {
         "Bucket": bucket,
@@ -759,17 +769,93 @@ def discover_files(bucket: str, path: str, recursive: bool, year: int = None) ->
     for page in paginator.paginate(**operation_params):
         for obj in page.get("Contents", []):
             key = obj["Key"]
+            
+            # Check file extension pattern
             if not key.endswith(".ndjson"):
                 continue
 
             filename = key.split("/")[-1].split(".")[0]
-            if not (filename.isdigit() and len(filename) == 4):
+            
+            # Apply filename regex if configured
+            if filename_regex and not filename_regex.match(filename):
                 continue
-
-            file_year = int(filename)
-            if year and file_year != year:
-                continue
+            
+            # Legacy year filtering for backward compatibility
+            if filename.isdigit() and len(filename) == 4:
+                file_year = int(filename)
+                if year and file_year != year:
+                    continue
 
             files.append((bucket, key))
 
     return files
+
+
+async def process_granules_from_url(job_id: str, url: str):
+    """Process granules from URL/endpoint for velocity-granules collection"""
+    import httpx
+    import tempfile
+    import json
+    
+    try:
+        tracker.update_job(job_id, {"status": "running"})
+        logger.info(f"Processing granules from URL: {url}")
+        
+        # Fetch granule data from URL
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            
+            # Assume the URL returns NDJSON format
+            granule_data = response.text
+            
+        # Create temporary file for processing
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.ndjson', delete=False) as temp_file:
+            temp_file.write(granule_data)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Load granules into database using pypgstac
+            proc = await asyncio.create_subprocess_exec(
+                "micromamba", "run", "-p", "/opt/conda", "pypgstac",
+                "load",
+                "items",
+                temp_file_path,
+                "--method=insert_ignore",
+                f"--dsn={DATABASE_URL}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await proc.communicate()
+            
+            if proc.returncode != 0:
+                raise Exception(f"Failed to load granules: {stderr.decode().strip()}")
+            
+            # Count processed items
+            item_count = granule_data.count('\n') if granule_data else 0
+            
+            tracker.update_job(
+                job_id,
+                {
+                    "status": "completed",
+                    "summary": {
+                        "total_files": 1,
+                        "processed": 1,
+                        "succeeded": 1,
+                        "failed": 0,
+                        "progress": 100.0,
+                        "items_processed": item_count,
+                    }
+                }
+            )
+            
+            logger.info(f"Successfully processed {item_count} granules from {url}")
+            
+        finally:
+            # Clean up temporary file
+            os.unlink(temp_file_path)
+            
+    except Exception as e:
+        logger.error(f"Failed to process granules from {url}: {str(e)}")
+        tracker.update_job(job_id, {"status": "failed", "error": str(e)})
