@@ -8,11 +8,13 @@ This application initializes a PGSTAC database and ingests ITS_LIVE collections:
 - **itslive-cubes**: Cloud-optimized Zarr cubes (small dataset, loaded from local files)
 - **velocity-mosaics**: Regional glacier velocities (small dataset, loaded from local files)
 
+The STAC endpoint can be reached at https://stac.itslive.cloud
+
 ## Usage
 
 ### Database Initialization
 
-Initialize the database with all collections and items:
+Initialize database with all collections and items:
 
 ```bash
 curl -X POST "http://localhost:8000/initdb?migrate=true" \
@@ -27,12 +29,12 @@ This will:
 
 ### Granule Ingestion
 
-For the large velocity-granules collection, use the S3-based ingestion:
+For the velocity-granules collection, multiple ingestion strategies are available depending on your data volume and format. See **[ingest.md](./ingest.md)** for detailed documentation on all ingestion methods including:
 
-```bash
-curl -X POST "http://localhost:8000/ingest?bucket=its-live-data&path=velocity_mosaic/2024/&recursive=true" \
-  -H "X-API-Token: your-token"
-```
+- **Single Item API** - Real-time ingest of 1-5K items
+- **Bulk API** - Batch ingest of 1K-10K items from JSON
+- **Ingest Agent (URL)** - NDJSON from HTTP endpoints (10K-100K+ items)
+- **Ingest Agent (S3)** - Large-scale batch processing from S3 (10K-100K+ items)
 
 ## Collections
 
@@ -58,6 +60,8 @@ curl -X POST "http://localhost:8000/ingest?bucket=its-live-data&path=velocity_mo
 
 - `POST /initdb` - Initialize database with all collections
 - `POST /ingest` - Ingest granules from S3
+- `POST /ingest/granules` - Ingest granules from HTTP URL
 - `GET /jobs/{job_id}` - Check job status
 - `GET /health` - Health check
 - `GET /database` - Test database connection
+
