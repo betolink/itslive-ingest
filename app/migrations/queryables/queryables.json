@@ -1,12 +1,12 @@
 {
-    "title": "Queryables for Example STAC API",
-    "description": "Queryable names for the Example STAC API",
+    "title": "Queryables for ITS_LIVE STAC API",
+    "description": "Queryable names for the ITS_LIVE STAC API",
     "properties": {
-        "date_dt": {
+        "dt_days": {
             "type": "number",
             "title": "Days of Separation",
-            "maximum": 365,
-            "minimum": 7,
+            "maximum": 546,
+            "minimum": 6,
             "description": "Days of separation between image pairs"
         },
         "percent_valid_pixels": {

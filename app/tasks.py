@@ -298,7 +298,7 @@ async def initialize_database_task(job_id: str, migrate: bool):
             raise Exception("Failed to load items")
             
         # Load queryables
-        if not await load_queryables(["dt_days", "created"]):
+        if not await load_queryables(["dt_days", "percent_valid_pixels", "created"]):
             raise Exception("Failed to load queryables")
             
         # Run custom migrations
