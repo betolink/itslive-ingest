@@ -15,6 +15,20 @@
             "minimum": 0,
             "maximum": 100
         },
+        "scene_1_frame": {
+            "description": "Path and row identifier for scene 1",
+            "type": "string",
+            "examples": [
+                "046026"
+            ]
+        },
+        "scene_2_frame": {
+            "description": "Path and row identifier for scene 2",
+            "type": "string",
+            "examples": [
+                "047026"
+            ]
+        },
         "created": {
             "description": "Processing date of the granule",
             "type": "string",
